@@ -18,10 +18,10 @@ The items below need Aidan (permissions/decisions Claude couldn't take autonomou
 
 ## Important — protection gaps
 
-- [ ] **2. Allow Actions to open PRs** (~1 min). GitHub → repo → Settings → Actions →
-  General → check **"Allow GitHub Actions to create and approve pull requests"**.
-  Needed by the sync conflict-PR flow and the pull-content workflow.
-  (Claude's permission classifier blocked setting this via API — flip it manually.)
+- [x] **2. Allow Actions to open PRs** — done 2026-07-03. Note for org-owned repos:
+  this must be enabled at BOTH the org level (Org Settings → Actions → General, which
+  merely unlocks the repo checkbox) and the repo level. Default workflow permissions
+  stay at `read` — workflows request `contents: write` explicitly where needed.
 
 - [x] **3. Branch protection on `main`** — done 2026-07-03 after the repo went public:
   PRs required (with `theme-check` status check), force pushes and deletion blocked.
