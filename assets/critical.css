@@ -115,3 +115,5 @@ body {
 .shopify-section > .full-width {
   grid-column: 1 / -1;
 }
+
+/* pipeline-e2e-test 2026-07-03: code flows main -> production + sale */
