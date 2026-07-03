@@ -5,18 +5,27 @@ https://github.com/Shoptera/minimal-focus-theme (branches `main`/`dev`/`sale`,
 all 7 workflows registered). Three themes exist on test-store8087.myshopify.com.
 The items below need Aidan (permissions/decisions Claude couldn't take autonomously).
 
-- [ ] **1. Finish CI auth (Dev Dashboard app)** — Theme Access is broken on this
-  store: even freshly generated `shptka_` passwords get 401 locally and from
-  Shopify's own auth proxy (verified 2026-07-03 via the debug workflow), so we
-  switched to a Dev Dashboard app using the client credentials grant. Aidan created
-  the app, installed it, granted theme scopes. Remaining:
-  1. `gh secret set SHOPIFY_CLIENT_ID --repo Shoptera/minimal-focus-theme`
-  2. `gh secret set SHOPIFY_CLIENT_SECRET --repo Shoptera/minimal-focus-theme`
-  3. Confirm the app and test-store8087 are in the SAME Dev Dashboard org
-     (store listed under the org's "Dev stores"), else `shop_not_permitted`.
-  4. Run the "Debug Shopify auth (temporary)" workflow → expect "AUTH VERIFIED".
-  5. Delete the stale secret: `gh secret delete SHOPIFY_CLI_THEME_TOKEN --repo Shoptera/minimal-focus-theme`
-  6. Delete `.github/workflows/debug-token.yml` once green.
+- [ ] **1. Unblock theme writes** — CI auth itself now works (Dev Dashboard app,
+  client credentials; debug workflow reports AUTH VERIFIED, scopes
+  `write_theme_code,write_themes`), but pushes fail with:
+  `Access denied for themeFilesUpsert — needs write_themes AND an exemption from Shopify`.
+  Per shopify.dev, ALL app tokens need this exemption to write theme files; only
+  Theme Access passwords and interactive CLI logins are exempt. Two parallel paths:
+  1. **Submit the exemption request** for the `theme-cicd` app (form linked from the
+     error / shopify.dev "Asset API legacy" page — category: developer tooling,
+     internal CI/CD for own org's stores). Review SLA ~2 weeks.
+  2. **Bisect Theme Access:** on any OTHER store (or a fresh dev store created inside
+     the Shoptera Dev Dashboard org), install Theme Access, make a password, and run
+     `shopify theme list --store <other-store>.myshopify.com --password shptka_...`
+     - Works there → Theme Access is broken on test-store8087 specifically: contact
+       Shopify support, or move this example pipeline to the working store (swap the
+       4 repo variables + create themes there — the setup is store-portable).
+     - Fails there too → likely a new-gen dev-store limitation; rely on the exemption.
+  Once either path works: run the debug workflow, then re-run "Deploy production"
+  and "Sync main to sale". The content-safety test is already staged: the sale theme
+  has a marker in `config/settings_data.json` and the sale branch has a pending code
+  change — after the first successful sale deploy, verify the marker survived.
+  Then delete `.github/workflows/debug-token.yml`.
 
 ## Important — protection gaps
 
