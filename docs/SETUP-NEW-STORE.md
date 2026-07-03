@@ -3,6 +3,14 @@
 Checklist to stand up the same 3-branch / 3-theme pipeline for any store you work on.
 Time: ~30 minutes.
 
+> **Keep client-store repos private.** The pull-content workflow commits store content
+> (copy, campaign names, theme settings) into git, and the repo reveals the store URL.
+> This reference repo is public because it's MIT skeleton code against a test store —
+> that also unlocks free branch protection. For private client repos, branch protection
+> requires GitHub Pro/Team. If a repo is public: require approval for all outside
+> collaborators' fork-PR workflows and enable secret scanning + push protection
+> (Settings → Actions / Security), as done on this repo.
+
 ## Prerequisites
 
 - Admin (or collaborator with theme permissions) access to the Shopify store
