@@ -65,14 +65,12 @@ jobs:
             echo "::error::SHOPIFY_CLI_THEME_TOKEN contains whitespace/newlines — re-set it with the exact value."
             exit 1
           fi
+          # Valid credentials per Shopify docs: Theme Access password (shptka_)
+          # or a custom-app Admin API token with write_themes (shpat_).
           case "$TOKEN" in
-            shptka_*) ;;
-            shpat_*|shpca_*|shpss_*)
-              echo "::error::SHOPIFY_CLI_THEME_TOKEN looks like an Admin/custom-app API token. Theme deploys need a Theme Access app password (starts with shptka_). See docs/SETUP-NEW-STORE.md step 4."
-              exit 1
-              ;;
+            shptka_*|shpat_*) ;;
             *)
-              echo "::warning::SHOPIFY_CLI_THEME_TOKEN does not start with shptka_ — expected a Theme Access app password. Continuing, but a 401 means the token type or store is wrong."
+              echo "::warning::SHOPIFY_CLI_THEME_TOKEN is neither a Theme Access password (shptka_) nor a custom-app token (shpat_). Continuing, but a 401 means the token type or store is wrong."
               ;;
           esac
 
@@ -92,9 +90,10 @@ jobs:
         env:
           SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
           SHOPIFY_FLAG_STORE: ${{ vars.SHOPIFY_STORE }}
+          SHOPIFY_FLAG_FORCE: 1
         run: |
           set -euo pipefail
-          FLAGS=(--theme "${{ inputs.theme_id }}" --nodelete)
+          FLAGS=(--theme "${{ inputs.theme_id }}" --nodelete --json)
           if [ "${{ inputs.protect_content }}" = "true" ]; then
             FLAGS+=(
               --ignore "config/settings_data.json"
