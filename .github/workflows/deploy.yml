@@ -59,6 +59,22 @@ jobs:
             echo "::error::SHOPIFY_STORE repository variable is not set. See docs/SETUP-NEW-STORE.md step 5."
             exit 1
           fi
+          # Diagnose common token mistakes without revealing the value
+          TRIMMED=$(printf %s "$TOKEN" | tr -d '[:space:]')
+          if [ "${#TOKEN}" -ne "${#TRIMMED}" ]; then
+            echo "::error::SHOPIFY_CLI_THEME_TOKEN contains whitespace/newlines — re-set it with the exact value."
+            exit 1
+          fi
+          case "$TOKEN" in
+            shptka_*) ;;
+            shpat_*|shpca_*|shpss_*)
+              echo "::error::SHOPIFY_CLI_THEME_TOKEN looks like an Admin/custom-app API token. Theme deploys need a Theme Access app password (starts with shptka_). See docs/SETUP-NEW-STORE.md step 4."
+              exit 1
+              ;;
+            *)
+              echo "::warning::SHOPIFY_CLI_THEME_TOKEN does not start with shptka_ — expected a Theme Access app password. Continuing, but a 401 means the token type or store is wrong."
+              ;;
+          esac
 
       - name: Checkout ${{ inputs.ref }}
         uses: actions/checkout@v4
