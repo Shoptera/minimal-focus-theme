@@ -1,18 +1,12 @@
 # TODO — tasks to pick up
 
-Status as of 2026-07-02. The pipeline is fully built and the repo is live at
-https://github.com/Aidano-eg/minimal-focus-theme (private, branches `main`/`dev`/`sale`,
+Status as of 2026-07-03. The pipeline is fully built and the repo is live at
+https://github.com/Shoptera/minimal-focus-theme (branches `main`/`dev`/`sale`,
 all 7 workflows registered). Three themes exist on test-store8087.myshopify.com.
 The items below need Aidan (permissions/decisions Claude couldn't take autonomously).
 
-## Blocking — deploys won't run until done
-
-- [ ] **1. Create the CI deploy token** (~5 min)
-  1. Store admin → Apps → install **Theme Access** (free, by Shopify)
-  2. Create a password (it's emailed to you, starts with `shptka_`)
-  3. `gh secret set SHOPIFY_CLI_THEME_TOKEN --repo Aidano-eg/minimal-focus-theme`
-  4. Verify: `gh workflow run "Deploy dev" --repo Aidano-eg/minimal-focus-theme --ref dev`
-     → run should go green and the change appear on the [CI] Development theme.
+- [x] **1. Create the CI deploy token** — done 2026-07-03; `SHOPIFY_CLI_THEME_TOKEN`
+  secret is set and a Deploy dev run verified against it.
 
 ## Important — protection gaps
 
