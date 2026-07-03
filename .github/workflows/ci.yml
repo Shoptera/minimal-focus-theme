@@ -1,0 +1,32 @@
+# PR checks: Theme Check on every PR, plus a guard that enforces the
+# one-way sync rule (the sale branch must never merge into main).
+
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  theme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Shopify CLI
+        run: npm install -g @shopify/cli@latest
+
+      - name: Theme Check
+        run: shopify theme check --fail-level error
+
+  guard-one-way-sync:
+    if: github.base_ref == 'main' && github.head_ref == 'sale'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block sale → main merges
+        run: |
+          echo "::error::The sale branch must never merge into main. Sync is one-way (main → sale). Close this PR."
+          exit 1

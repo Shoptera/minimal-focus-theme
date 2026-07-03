@@ -1,0 +1,23 @@
+# dev branch → "[CI] Development" theme.
+# Full push (content included) — the dev theme mirrors the repo so developers
+# can preview exactly what is in git.
+
+name: Deploy dev
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      theme_id: ${{ vars.DEV_THEME_ID }}
+      ref: dev
+      protect_content: false
+    secrets: inherit

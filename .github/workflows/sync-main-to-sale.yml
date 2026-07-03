@@ -1,0 +1,99 @@
+# ONE-WAY sync: main → sale, code only.
+#
+# Every push to main is merged into sale, but the sale branch's content files
+# (config/settings_data.json, templates/*.json, sections/*.json) always win —
+# new features and code flow in, sale content is never overwritten.
+# Nothing ever flows sale → main (enforced by CI's guard job).
+#
+# If a real code conflict occurs, the merge is handed off to a PR against sale
+# for manual resolution instead of guessing.
+
+name: Sync main to sale
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-main-to-sale
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      pushed: ${{ steps.merge.outputs.pushed }}
+    steps:
+      - name: Checkout sale
+        uses: actions/checkout@v4
+        with:
+          ref: sale
+          fetch-depth: 0
+
+      - name: Merge main into sale (sale content wins)
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "sale already contains main — nothing to sync"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          set +e
+          git merge origin/main --no-commit --no-ff
+          set -e
+
+          # Sale's content always wins: restore sale's version of every content
+          # file that exists on sale. New content files added on main still
+          # arrive (they don't exist on sale, so checkout is a no-op for them).
+          CONTENT_PATHS=(
+            "config/settings_data.json"
+            "templates/*.json"
+            "templates/customers/*.json"
+            "templates/metaobject/*.json"
+            "sections/*.json"
+          )
+          for p in "${CONTENT_PATHS[@]}"; do
+            git checkout HEAD -- "$p" 2>/dev/null || true
+          done
+
+          # Remaining conflicts are real code conflicts — hand off to a PR.
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            git merge --abort
+            BRANCH="sync/main-to-sale-${GITHUB_RUN_NUMBER}"
+            git checkout -b "$BRANCH" origin/main
+            git push origin "$BRANCH"
+            gh pr create --base sale --head "$BRANCH" \
+              --title "Sync main into sale — manual conflict resolution needed" \
+              --body "$(printf 'Automatic main → sale sync hit code conflicts.\n\nResolve them manually, and remember the one-way rule: **never take main'\''s version of content files** (config/settings_data.json, templates/*.json, sections/*.json) — the sale branch'\''s content always wins.')"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Merge conflict — opened a PR against sale for manual resolution."
+            exit 0
+          fi
+
+          git commit --no-verify -m "chore: sync code from main into sale (content preserved)"
+          git push origin HEAD:sale
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+  # Pushes made with GITHUB_TOKEN don't trigger the deploy-sale workflow,
+  # so deploy the sale theme from here after a successful sync.
+  deploy-sale-theme:
+    needs: sync
+    if: needs.sync.outputs.pushed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      theme_id: ${{ vars.SALE_THEME_ID }}
+      ref: sale
+      protect_content: true
+    secrets: inherit

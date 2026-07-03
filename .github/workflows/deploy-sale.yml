@@ -1,0 +1,27 @@
+# sale branch → "[CI] Sale" theme.
+# Content JSON is protected: sale content (banners, sale templates, settings) is
+# managed in the theme editor on the sale theme and must never be overwritten.
+#
+# Note: pushes made by the sync-main-to-sale workflow deploy via that workflow's
+# own deploy job (GITHUB_TOKEN pushes don't trigger this one). This workflow
+# covers direct pushes / merged PRs to sale.
+
+name: Deploy sale
+
+on:
+  push:
+    branches: [sale]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      theme_id: ${{ vars.SALE_THEME_ID }}
+      ref: sale
+      protect_content: true
+    secrets: inherit

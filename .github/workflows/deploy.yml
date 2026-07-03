@@ -1,0 +1,92 @@
+# Reusable deploy workflow — pushes a git ref to a specific Shopify theme.
+#
+# protect_content: true  → content JSON (templates/*.json, config/settings_data.json,
+#                          sections/*.json) is NOT pushed, so changes made by
+#                          admins in the theme editor are never overwritten.
+# allow_live:      true  → required only when the target theme is the store's
+#                          published (live) theme.
+#
+# Always pushes with --nodelete: CI never deletes remote files. Removing a file
+# from a theme is a deliberate manual step (see docs/WORKFLOW.md).
+
+name: Deploy theme (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      theme_id:
+        description: Shopify theme ID to push to
+        required: true
+        type: string
+      ref:
+        description: Git ref to deploy
+        required: true
+        type: string
+      protect_content:
+        description: Skip content JSON so theme-editor changes are preserved
+        required: false
+        type: boolean
+        default: true
+      allow_live:
+        description: Allow pushing to the published theme
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SHOPIFY_CLI_THEME_TOKEN:
+        required: true
+
+concurrency:
+  group: deploy-theme-${{ inputs.theme_id }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secrets are configured
+        env:
+          TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+          STORE: ${{ vars.SHOPIFY_STORE }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::SHOPIFY_CLI_THEME_TOKEN secret is not set. See docs/SETUP-NEW-STORE.md step 4."
+            exit 1
+          fi
+          if [ -z "$STORE" ]; then
+            echo "::error::SHOPIFY_STORE repository variable is not set. See docs/SETUP-NEW-STORE.md step 5."
+            exit 1
+          fi
+
+      - name: Checkout ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Shopify CLI
+        run: npm install -g @shopify/cli@latest
+
+      - name: Push theme ${{ inputs.theme_id }}
+        env:
+          SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+          SHOPIFY_FLAG_STORE: ${{ vars.SHOPIFY_STORE }}
+        run: |
+          set -euo pipefail
+          FLAGS=(--theme "${{ inputs.theme_id }}" --nodelete)
+          if [ "${{ inputs.protect_content }}" = "true" ]; then
+            FLAGS+=(
+              --ignore "config/settings_data.json"
+              --ignore "templates/*.json"
+              --ignore "templates/customers/*.json"
+              --ignore "templates/metaobject/*.json"
+              --ignore "sections/*.json"
+            )
+          fi
+          if [ "${{ inputs.allow_live }}" = "true" ]; then
+            FLAGS+=(--allow-live)
+          fi
+          shopify theme push "${FLAGS[@]}"

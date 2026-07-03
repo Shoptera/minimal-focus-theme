@@ -1,0 +1,26 @@
+# main branch → "[CI] Production" theme.
+# Content JSON is protected: admin editors own production content in the theme editor.
+#
+# If the production theme is the store's PUBLISHED theme, set the repo variable
+# PRODUCTION_IS_LIVE to "true" so the push is allowed to target it.
+
+name: Deploy production (main)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      theme_id: ${{ vars.PRODUCTION_THEME_ID }}
+      ref: main
+      protect_content: true
+      allow_live: ${{ vars.PRODUCTION_IS_LIVE == 'true' }}
+    secrets: inherit

@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Edit(./**)",
+      "Write(./**)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(shopify version:*)",
+      "Bash(shopify theme check:*)",
+      "Bash(shopify theme list:*)",
+      "Bash(shopify theme info:*)",
+      "Bash(shopify theme push:*)",
+      "Bash(shopify theme pull:*)",
+      "Bash(shopify theme dev:*)"
+    ],
+    "deny": [
+      "Bash(shopify theme publish:*)",
+      "Bash(shopify theme delete:*)",
+      "Bash(shopify theme rename:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-bash.js"
+          }
+        ]
+      }
+    ]
+  }
+}

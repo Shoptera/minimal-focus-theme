@@ -1,0 +1,86 @@
+# Manual, reviewed capture of theme-editor content back into git.
+#
+# Admin editors change content (templates, settings) directly in the Shopify
+# theme editor. Deploys never overwrite that content — but it only lives in
+# Shopify until someone runs this workflow, which pulls the content JSON from a
+# theme and opens a PR so the change is reviewed and versioned.
+#
+# Routing enforces the one-way rule:
+#   production theme → PR into main
+#   dev theme        → PR into main
+#   sale theme       → PR into sale   (sale content NEVER goes to main)
+
+name: Pull theme content (PR)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Which theme's content to pull
+        type: choice
+        options:
+          - production
+          - dev
+          - sale
+        default: production
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Shopify CLI
+        run: npm install -g @shopify/cli@latest
+
+      - name: Pull content and open PR
+        env:
+          SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+          SHOPIFY_FLAG_STORE: ${{ vars.SHOPIFY_STORE }}
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_THEME_ID: ${{ vars.PRODUCTION_THEME_ID }}
+          DEV_THEME_ID: ${{ vars.DEV_THEME_ID }}
+          SALE_THEME_ID: ${{ vars.SALE_THEME_ID }}
+        run: |
+          set -euo pipefail
+          case "${{ inputs.source }}" in
+            production) THEME_ID="$PRODUCTION_THEME_ID"; BASE="main" ;;
+            dev)        THEME_ID="$DEV_THEME_ID";        BASE="main" ;;
+            sale)       THEME_ID="$SALE_THEME_ID";       BASE="sale" ;;
+          esac
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch "$BASE"
+
+          BRANCH="content/${{ inputs.source }}-$(date +%Y-%m-%d)-${GITHUB_RUN_NUMBER}"
+          git switch -c "$BRANCH"
+
+          shopify theme pull --theme "$THEME_ID" --nodelete \
+            --only "config/settings_data.json" \
+            --only "templates/*.json" \
+            --only "templates/customers/*.json" \
+            --only "templates/metaobject/*.json" \
+            --only "sections/*.json"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No content changes — theme matches the $BASE branch. Nothing to do."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "content: capture theme-editor changes from ${{ inputs.source }} theme"
+          git push origin "$BRANCH"
+          gh pr create --base "$BASE" --head "$BRANCH" \
+            --title "Content: ${{ inputs.source }} theme editor changes ($(date +%Y-%m-%d))" \
+            --body "Content JSON pulled from the **${{ inputs.source }}** theme by the *Pull theme content* workflow. Review and merge to version these theme-editor changes."
