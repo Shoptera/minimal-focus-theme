@@ -34,7 +34,9 @@ on:
         default: false
     secrets:
       SHOPIFY_CLI_THEME_TOKEN:
-        required: true
+        # Not marked required so a missing secret reaches the friendly
+        # "Check secrets" step below instead of a call-validation error.
+        required: false
 
 concurrency:
   group: deploy-theme-${{ inputs.theme_id }}
