@@ -1,0 +1,70 @@
+name: Resolve Shopify theme token
+description: >
+  Outputs a token for Shopify CLI theme commands. Prefers a Dev Dashboard app's
+  client credentials (exchanged for a fresh 24h Admin API token on every run —
+  nothing static to rotate). Falls back to a static SHOPIFY_CLI_THEME_TOKEN
+  (Theme Access password shptka_ or legacy custom-app token shpat_).
+
+inputs:
+  store:
+    description: myshopify.com domain of the store
+    required: true
+  client_id:
+    description: Dev Dashboard app client ID
+    required: false
+  client_secret:
+    description: Dev Dashboard app client secret
+    required: false
+  static_token:
+    description: Static Theme Access password or Admin API token
+    required: false
+
+outputs:
+  token:
+    description: Token to expose as SHOPIFY_CLI_THEME_TOKEN
+    value: ${{ steps.resolve.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        STORE: ${{ inputs.store }}
+        CLIENT_ID: ${{ inputs.client_id }}
+        CLIENT_SECRET: ${{ inputs.client_secret }}
+        STATIC_TOKEN: ${{ inputs.static_token }}
+      run: |
+        set -euo pipefail
+        if [ -z "$STORE" ]; then
+          echo "::error::SHOPIFY_STORE repository variable is not set. See docs/SETUP-NEW-STORE.md."
+          exit 1
+        fi
+
+        if [ -n "$CLIENT_ID" ] && [ -n "$CLIENT_SECRET" ]; then
+          # Client credentials grant: app + store must be in the SAME Dev
+          # Dashboard organization, with the app installed on the store.
+          RESP=$(curl -s -X POST "https://${STORE}/admin/oauth/access_token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=client_credentials" \
+            -d "client_id=${CLIENT_ID}" \
+            -d "client_secret=${CLIENT_SECRET}")
+          TOKEN=$(echo "$RESP" | jq -r '.access_token // empty')
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Client credentials exchange failed. Response: $RESP"
+            echo "Common causes: app and store not in the same Dev Dashboard org (shop_not_permitted), app not installed on the store, missing read_themes/write_themes scopes, or rotated secret."
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "Authenticated via Dev Dashboard client credentials (token expires in $(echo "$RESP" | jq -r .expires_in)s, scopes: $(echo "$RESP" | jq -r .scope))"
+        elif [ -n "$STATIC_TOKEN" ]; then
+          TOKEN="$STATIC_TOKEN"
+          case "$TOKEN" in
+            shptka_*|shpat_*) echo "Authenticated via static token" ;;
+            *) echo "::warning::Static token is neither shptka_ (Theme Access) nor shpat_ (custom app) — a 401 likely means the wrong value was pasted." ;;
+          esac
+        else
+          echo "::error::No Shopify credentials configured. Set SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET (Dev Dashboard app, recommended) or SHOPIFY_CLI_THEME_TOKEN (Theme Access password). See docs/SETUP-NEW-STORE.md step 4."
+          exit 1
+        fi
+        echo "token=$TOKEN" >> "$GITHUB_OUTPUT"

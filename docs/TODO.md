@@ -5,16 +5,18 @@ https://github.com/Shoptera/minimal-focus-theme (branches `main`/`dev`/`sale`,
 all 7 workflows registered). Three themes exist on test-store8087.myshopify.com.
 The items below need Aidan (permissions/decisions Claude couldn't take autonomously).
 
-- [ ] **1. Fix the CI deploy token** — secret was set 2026-07-03 and is a well-formed
-  Theme Access password (`shptka_`, no whitespace — the deploy guard verified this),
-  but Shopify rejects it: `401 Invalid API key or access token` against
-  test-store8087.myshopify.com. Most likely causes:
-  1. The password was created in the Theme Access app of a **different store** —
-     Theme Access passwords are per-store. Confirm it was created in
-     test-store8087's admin.
-  2. Truncated/mangled paste. Re-copy from the Theme Access email link and re-run:
-     `gh secret set SHOPIFY_CLI_THEME_TOKEN --repo Shoptera/minimal-focus-theme`
-  Verify with: `gh workflow run "Deploy dev" --repo Shoptera/minimal-focus-theme --ref dev`
+- [ ] **1. Finish CI auth (Dev Dashboard app)** — Theme Access is broken on this
+  store: even freshly generated `shptka_` passwords get 401 locally and from
+  Shopify's own auth proxy (verified 2026-07-03 via the debug workflow), so we
+  switched to a Dev Dashboard app using the client credentials grant. Aidan created
+  the app, installed it, granted theme scopes. Remaining:
+  1. `gh secret set SHOPIFY_CLIENT_ID --repo Shoptera/minimal-focus-theme`
+  2. `gh secret set SHOPIFY_CLIENT_SECRET --repo Shoptera/minimal-focus-theme`
+  3. Confirm the app and test-store8087 are in the SAME Dev Dashboard org
+     (store listed under the org's "Dev stores"), else `shop_not_permitted`.
+  4. Run the "Debug Shopify auth (temporary)" workflow → expect "AUTH VERIFIED".
+  5. Delete the stale secret: `gh secret delete SHOPIFY_CLI_THEME_TOKEN --repo Shoptera/minimal-focus-theme`
+  6. Delete `.github/workflows/debug-token.yml` once green.
 
 ## Important — protection gaps
 
