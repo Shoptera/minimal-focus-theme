@@ -1,5 +1,10 @@
 # Reusable deploy workflow — pushes a git ref to a specific Shopify theme.
 #
+# Auth (resolved by .github/actions/shopify-auth):
+#   preferred — SHOPIFY_CLIENT_ID + SHOPIFY_CLIENT_SECRET secrets (Dev Dashboard
+#               app; exchanged for a fresh 24h Admin token every run)
+#   fallback  — SHOPIFY_CLI_THEME_TOKEN secret (Theme Access password)
+#
 # protect_content: true  → content JSON (templates/*.json, config/settings_data.json,
 #                          sections/*.json) is NOT pushed, so changes made by
 #                          admins in the theme editor are never overwritten.
@@ -33,9 +38,11 @@ on:
         type: boolean
         default: false
     secrets:
+      SHOPIFY_CLIENT_ID:
+        required: false
+      SHOPIFY_CLIENT_SECRET:
+        required: false
       SHOPIFY_CLI_THEME_TOKEN:
-        # Not marked required so a missing secret reaches the friendly
-        # "Check secrets" step below instead of a call-validation error.
         required: false
 
 concurrency:
@@ -46,38 +53,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check secrets are configured
-        env:
-          TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
-          STORE: ${{ vars.SHOPIFY_STORE }}
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::SHOPIFY_CLI_THEME_TOKEN secret is not set. See docs/SETUP-NEW-STORE.md step 4."
-            exit 1
-          fi
-          if [ -z "$STORE" ]; then
-            echo "::error::SHOPIFY_STORE repository variable is not set. See docs/SETUP-NEW-STORE.md step 5."
-            exit 1
-          fi
-          # Diagnose common token mistakes without revealing the value
-          TRIMMED=$(printf %s "$TOKEN" | tr -d '[:space:]')
-          if [ "${#TOKEN}" -ne "${#TRIMMED}" ]; then
-            echo "::error::SHOPIFY_CLI_THEME_TOKEN contains whitespace/newlines — re-set it with the exact value."
-            exit 1
-          fi
-          # Valid credentials per Shopify docs: Theme Access password (shptka_)
-          # or a custom-app Admin API token with write_themes (shpat_).
-          case "$TOKEN" in
-            shptka_*|shpat_*) ;;
-            *)
-              echo "::warning::SHOPIFY_CLI_THEME_TOKEN is neither a Theme Access password (shptka_) nor a custom-app token (shpat_). Continuing, but a 401 means the token type or store is wrong."
-              ;;
-          esac
-
       - name: Checkout ${{ inputs.ref }}
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Resolve Shopify token
+        id: auth
+        uses: ./.github/actions/shopify-auth
+        with:
+          store: ${{ vars.SHOPIFY_STORE }}
+          client_id: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          client_secret: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+          static_token: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -88,7 +76,7 @@ jobs:
 
       - name: Push theme ${{ inputs.theme_id }}
         env:
-          SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+          SHOPIFY_CLI_THEME_TOKEN: ${{ steps.auth.outputs.token }}
           SHOPIFY_FLAG_STORE: ${{ vars.SHOPIFY_STORE }}
           SHOPIFY_FLAG_FORCE: 1
         run: |

@@ -36,6 +36,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve Shopify token
+        id: auth
+        uses: ./.github/actions/shopify-auth
+        with:
+          store: ${{ vars.SHOPIFY_STORE }}
+          client_id: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          client_secret: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+          static_token: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,7 +54,7 @@ jobs:
 
       - name: Pull content and open PR
         env:
-          SHOPIFY_CLI_THEME_TOKEN: ${{ secrets.SHOPIFY_CLI_THEME_TOKEN }}
+          SHOPIFY_CLI_THEME_TOKEN: ${{ steps.auth.outputs.token }}
           SHOPIFY_FLAG_STORE: ${{ vars.SHOPIFY_STORE }}
           GH_TOKEN: ${{ github.token }}
           PRODUCTION_THEME_ID: ${{ vars.PRODUCTION_THEME_ID }}

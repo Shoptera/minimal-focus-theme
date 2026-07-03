@@ -50,18 +50,38 @@ Note the `id` in each JSON response.
 **Existing live theme instead?** Skip creating a production theme and use the live
 theme's ID as `PRODUCTION_THEME_ID`, then set `PRODUCTION_IS_LIVE=true` in step 5.
 
-## 4. Create the CI deploy token (Theme Access app)
+## 4. Create the CI deploy credentials
 
-1. In the store admin, install the free **Theme Access** app (by Shopify).
-2. Create a password for a CI "user" (use a real email; the password arrives by email/link).
-3. Save it as a repo secret:
+CI resolves auth via `.github/actions/shopify-auth`: it prefers Option A and falls
+back to Option B.
+
+**Option A — Dev Dashboard app (recommended; what this repo uses):**
+
+1. In the [Dev Dashboard](https://dev.shopify.com), create an app (e.g. `theme-cicd`).
+2. Give it the `read_themes` and `write_themes` Admin API scopes and release the version.
+3. Install the app on the store.
+4. App → Settings → copy the **Client ID** and **Client secret**, then:
 
 ```bash
-gh secret set SHOPIFY_CLI_THEME_TOKEN --repo <owner>/<repo>
-# paste the shptka_... password
+gh secret set SHOPIFY_CLIENT_ID     --repo <owner>/<repo>
+gh secret set SHOPIFY_CLIENT_SECRET --repo <owner>/<repo>
 ```
 
-This token only grants theme permissions — safer than a personal CLI session in CI.
+CI exchanges these for a fresh 24-hour Admin token on every run (OAuth client
+credentials grant) — nothing static to rotate or expire.
+
+> Requirement: the app and the store must be in the **same Dev Dashboard
+> organization** (the store must appear under that org's "Dev stores"), or the
+> exchange fails with `shop_not_permitted`. For client stores outside your org,
+> use Option B instead.
+
+**Option B — Theme Access app (per-store password; works for any store):**
+
+1. In the store admin, install the free **Theme Access** app (by Shopify).
+2. Create a password for a CI "user" (the `shptka_...` password arrives by email link).
+3. `gh secret set SHOPIFY_CLI_THEME_TOKEN --repo <owner>/<repo>`
+
+This password only grants theme permissions — safer than a personal CLI session in CI.
 
 ## 5. Set the repo variables
 
