@@ -5,8 +5,16 @@ https://github.com/Shoptera/minimal-focus-theme (branches `main`/`dev`/`sale`,
 all 7 workflows registered). Three themes exist on test-store8087.myshopify.com.
 The items below need Aidan (permissions/decisions Claude couldn't take autonomously).
 
-- [x] **1. Create the CI deploy token** — done 2026-07-03; `SHOPIFY_CLI_THEME_TOKEN`
-  secret is set and a Deploy dev run verified against it.
+- [ ] **1. Fix the CI deploy token** — secret was set 2026-07-03 and is a well-formed
+  Theme Access password (`shptka_`, no whitespace — the deploy guard verified this),
+  but Shopify rejects it: `401 Invalid API key or access token` against
+  test-store8087.myshopify.com. Most likely causes:
+  1. The password was created in the Theme Access app of a **different store** —
+     Theme Access passwords are per-store. Confirm it was created in
+     test-store8087's admin.
+  2. Truncated/mangled paste. Re-copy from the Theme Access email link and re-run:
+     `gh secret set SHOPIFY_CLI_THEME_TOKEN --repo Shoptera/minimal-focus-theme`
+  Verify with: `gh workflow run "Deploy dev" --repo Shoptera/minimal-focus-theme --ref dev`
 
 ## Important — protection gaps
 
